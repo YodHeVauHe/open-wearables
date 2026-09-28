@@ -13134,12 +13134,13 @@
       },
       "MealConfig": {
         "properties": {
-          "meal_count": {
-            "type": "integer",
-            "maximum": 1000.0,
-            "minimum": 0.0,
-            "title": "Meal Count",
-            "default": 60
+          "meals_per_day_range": {
+            "$ref": "#/components/schemas/IntRange",
+            "description": "Random number of meals generated for each day in the date range.",
+            "default": [
+              3,
+              5
+            ]
           },
           "meal_types": {
             "anyOf": [
@@ -14915,7 +14916,10 @@
                   900
                 ],
                 "date_range_months": 6,
-                "meal_count": 60
+                "meals_per_day_range": [
+                  3,
+                  5
+                ]
               }
             }
           },
@@ -15107,7 +15111,10 @@
           "meal_config": {
             "$ref": "#/components/schemas/MealConfig",
             "default": {
-              "meal_count": 60,
+              "meals_per_day_range": [
+                3,
+                5
+              ],
               "calories_range": [
                 150,
                 900
