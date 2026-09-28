@@ -5,6 +5,7 @@ from app.services.providers.apple.coverage import MEAL_FIELDS, SLEEP_FIELDS
 
 # Samsung Health Data SDK exposes a narrower set than Health Connect, so Samsung
 # declares exactly what SamsungHealthManager emits instead of reusing Android/Apple.
+# Dietary types the SDK never sends (caffeine, chloride, extended vitamins/minerals) are excluded.
 TIMESERIES: frozenset[SeriesType] = frozenset(
     {
         *SAMSUNG_METRIC_TYPE_TO_SERIES_TYPE.values(),
