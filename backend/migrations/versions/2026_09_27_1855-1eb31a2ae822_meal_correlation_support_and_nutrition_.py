@@ -1,7 +1,7 @@
 """meal correlation support and nutrition series types
 
 Revision ID: 1eb31a2ae822
-Revises: a7c3e9f1b2d4
+Revises: ef6ff24def41
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '1eb31a2ae822'
-down_revision: Union[str, None] = 'a7c3e9f1b2d4'
+down_revision: Union[str, None] = 'ef6ff24def41'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
