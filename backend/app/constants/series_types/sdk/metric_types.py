@@ -507,35 +507,28 @@ _SAMSUNG_METRIC_TYPES: frozenset[SDKMetricType] = frozenset(
         SDKMetricType.ANDROID_SKELETAL_MUSCLE_MASS,
         SDKMetricType.ANDROID_BODY_MASS_INDEX,
         SDKMetricType.ANDROID_BASAL_METABOLIC_RATE,
+        SDKMetricType.ANDROID_DIETARY_ENERGY_CONSUMED,
+        SDKMetricType.ANDROID_DIETARY_CARBOHYDRATES,
+        SDKMetricType.ANDROID_DIETARY_FIBER,
+        SDKMetricType.ANDROID_DIETARY_SUGAR,
+        SDKMetricType.ANDROID_DIETARY_FAT_TOTAL,
+        SDKMetricType.ANDROID_DIETARY_FAT_SATURATED,
+        SDKMetricType.ANDROID_DIETARY_FAT_MONOUNSATURATED,
+        SDKMetricType.ANDROID_DIETARY_FAT_POLYUNSATURATED,
+        SDKMetricType.ANDROID_DIETARY_FAT_TRANS,
+        SDKMetricType.ANDROID_DIETARY_CHOLESTEROL,
+        SDKMetricType.ANDROID_DIETARY_PROTEIN,
+        SDKMetricType.ANDROID_DIETARY_SODIUM,
+        SDKMetricType.ANDROID_DIETARY_POTASSIUM,
+        SDKMetricType.ANDROID_DIETARY_CALCIUM,
+        SDKMetricType.ANDROID_DIETARY_IRON,
+        SDKMetricType.ANDROID_DIETARY_VITAMIN_A,
+        SDKMetricType.ANDROID_DIETARY_VITAMIN_C,
     }
 )
 
-# Samsung Health's dietary fields, per the "Nutrition fields" source-of-truth matrix
-SAMSUNG_DIETARY_METRIC_TYPE_TO_SERIES_TYPE: dict[SDKMetricType, SeriesType] = {
-    SDKMetricType.ANDROID_DIETARY_ENERGY_CONSUMED: SeriesType.dietary_energy_consumed,
-    SDKMetricType.ANDROID_DIETARY_CARBOHYDRATES: SeriesType.dietary_carbohydrates,
-    SDKMetricType.ANDROID_DIETARY_FIBER: SeriesType.dietary_fiber,
-    SDKMetricType.ANDROID_DIETARY_SUGAR: SeriesType.dietary_sugar,
-    SDKMetricType.ANDROID_DIETARY_FAT_TOTAL: SeriesType.dietary_fat_total,
-    SDKMetricType.ANDROID_DIETARY_FAT_SATURATED: SeriesType.dietary_fat_saturated,
-    SDKMetricType.ANDROID_DIETARY_FAT_MONOUNSATURATED: SeriesType.dietary_fat_monounsaturated,
-    SDKMetricType.ANDROID_DIETARY_FAT_POLYUNSATURATED: SeriesType.dietary_fat_polyunsaturated,
-    SDKMetricType.ANDROID_DIETARY_FAT_TRANS: SeriesType.dietary_fat_trans,
-    SDKMetricType.ANDROID_DIETARY_CHOLESTEROL: SeriesType.dietary_cholesterol,
-    SDKMetricType.ANDROID_DIETARY_PROTEIN: SeriesType.dietary_protein,
-    SDKMetricType.ANDROID_DIETARY_SODIUM: SeriesType.dietary_sodium,
-    SDKMetricType.ANDROID_DIETARY_POTASSIUM: SeriesType.dietary_potassium,
-    SDKMetricType.ANDROID_DIETARY_CALCIUM: SeriesType.dietary_calcium,
-    SDKMetricType.ANDROID_DIETARY_IRON: SeriesType.dietary_iron,
-    SDKMetricType.ANDROID_DIETARY_VITAMIN_A: SeriesType.dietary_vitamin_a,
-    SDKMetricType.ANDROID_DIETARY_VITAMIN_C: SeriesType.dietary_vitamin_c,
-}
-
-# Samsung's full coverage: the non-dietary metrics its SDK emits (see above) plus its
-# own explicit dietary set
 SAMSUNG_METRIC_TYPE_TO_SERIES_TYPE: dict[SDKMetricType, SeriesType] = {
-    **{k: v for k, v in METRIC_TYPE_TO_SERIES_TYPE.items() if k in _SAMSUNG_METRIC_TYPES},
-    **SAMSUNG_DIETARY_METRIC_TYPE_TO_SERIES_TYPE,
+    k: v for k, v in METRIC_TYPE_TO_SERIES_TYPE.items() if k in _SAMSUNG_METRIC_TYPES
 }
 
 
