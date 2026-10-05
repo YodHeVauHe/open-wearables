@@ -10,16 +10,18 @@ ACTIVITY_SAMPLE_SERIES: dict[str, SeriesType] = {
 }
 
 # Single daily values (handler key → SeriesType), each carrying its own day_start_timestamp.
+# night_rhr is the same resting heart rate as sleep_rhr, reported as the sleep-time average.
 DAILY_SCALAR_SERIES: dict[str, SeriesType] = {
     "vo2_max": SeriesType.vo2_max,
     "active_minutes": SeriesType.active_time,
     "sleep_rhr": SeriesType.resting_heart_rate,
+    "night_rhr": SeriesType.resting_heart_rate,
 }
 
 TIMESERIES: frozenset[SeriesType] = frozenset(
     {
         *ACTIVITY_SAMPLE_SERIES.values(),  # /user_data/metrics (hr, hrv, temp, steps)
-        *DAILY_SCALAR_SERIES.values(),  # /user_data/metrics (vo2_max, active_minutes, sleep_rhr)
+        *DAILY_SCALAR_SERIES.values(),  # /user_data/metrics (vo2_max, active_minutes, sleep_rhr, night_rhr)
     }
 )
 

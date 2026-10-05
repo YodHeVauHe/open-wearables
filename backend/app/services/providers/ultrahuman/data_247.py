@@ -27,6 +27,20 @@ from app.services.raw_payload_storage import store_raw_payload
 from app.services.timeseries_service import timeseries_service
 from app.utils.structured_logging import log_structured
 
+
+def _daily_metric_value(metric_type: str, metric: dict[str, Any]) -> Any:
+    """Number stored for one Ultrahuman daily metric.
+
+    ``night_rhr`` ("Resting HR", subtitle "Sleep Time Average") puts that
+    average in ``avg``. The timestamped ``values`` are the readings behind it,
+    not separate resting-heart-rate samples. Every other daily metric reports
+    its number in ``value``.
+    """
+    if metric_type == "night_rhr":
+        return metric.get("avg")
+    return metric.get("value")
+
+
 # Ultrahuman sleep_graph.data stage names → our canonical SleepStageType.
 SLEEP_GRAPH_STAGE_MAP: dict[str, SleepStageType] = {
     "deep_sleep": SleepStageType.DEEP,
@@ -604,7 +618,7 @@ class Ultrahuman247Data(Base247DataTemplate):
 
                     for key, series_type in DAILY_SCALAR_SERIES.items():
                         scalar = items_by_type.get(key) or {}
-                        value, day_start = scalar.get("value"), scalar.get("day_start_timestamp")
+                        value, day_start = _daily_metric_value(key, scalar), scalar.get("day_start_timestamp")
                         if value is None or not day_start:
                             continue
                         daily_samples.append(
