@@ -486,6 +486,56 @@ class TestUltrahumanActivitySamplesIntegration:
         samples = db.query(DataPointSeries).join(DataSource).filter(DataSource.user_id == user.id).all()
         assert samples == []
 
+    def test_sleep_rhr_preferred_when_night_rhr_is_also_present(self, db: Session) -> None:
+        """One resting heart rate per day: sleep_rhr, with night_rhr only as a fallback."""
+        user = UserFactory()
+        UserConnectionFactory(user=user, provider="ultrahuman", status="active", access_token="test_token")
+        DataSourceFactory(user_id=user.id, provider="ultrahuman")
+
+        provider_impl = ProviderFactory().get_provider("ultrahuman").data_247
+        assert isinstance(provider_impl, Ultrahuman247Data)
+
+        response = {
+            "data": {
+                "metric_data": [
+                    {"type": "sleep_rhr", "object": {"value": 48, "day_start_timestamp": 1705276800}},
+                    {
+                        "type": "night_rhr",
+                        "object": {
+                            "day_start_timestamp": 1705276800,
+                            "title": "Resting HR",
+                            "values": [{"value": 52, "timestamp": 1705290000}],
+                            "avg": 51,
+                        },
+                    },
+                ]
+            }
+        }
+
+        with patch.object(provider_impl, "_make_api_request", return_value=response):
+            provider_impl.load_and_save_all(
+                db,
+                user.id,
+                start_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+            )
+            db.commit()
+
+        samples = (
+            db.query(DataPointSeries)
+            .join(DataSource)
+            .join(SeriesTypeDefinition, DataPointSeries.series_type_definition_id == SeriesTypeDefinition.id)
+            .filter(
+                DataSource.user_id == user.id,
+                SeriesTypeDefinition.code == SeriesType.resting_heart_rate.value,
+            )
+            .all()
+        )
+
+        assert [(sample.recorded_at, float(sample.value)) for sample in samples] == [
+            (datetime(2024, 1, 15, 0, 0, tzinfo=timezone.utc), 48.0),
+        ]
+
     def test_heart_rate_values_are_reasonable_with_mocked_api(
         self, db: Session, sample_ultrahuman_api_response: dict
     ) -> None:
