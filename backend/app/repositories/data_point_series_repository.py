@@ -243,7 +243,7 @@ class DataPointSeriesRepository(
             manufacturers: dict[DataSourceIdentity, str] = {}
             user_connection_id = provider_creators[0].user_connection_id if provider_creators else None
             for c in provider_creators:
-                identity = (c.user_id, c.device_model, c.source, c.device_id, c.source_app_id)
+                identity = DataSourceIdentity.of(c)
                 unique_identities.add(identity)
                 if c.device_type:
                     reported_types.setdefault(identity, c.device_type)
@@ -294,14 +294,7 @@ class DataPointSeriesRepository(
         """
         rows: list[DataPointSeriesRepository._StagingRow] = []
         for creator in creators:
-            identity: DataSourceIdentity = (
-                creator.user_id,
-                creator.device_model,
-                creator.source,
-                creator.device_id,
-                creator.source_app_id,
-            )
-            source_id = source_map.get(identity)
+            source_id = source_map.get(DataSourceIdentity.of(creator))
             if not source_id:
                 # Should not happen if resolve logic is correct, but safe skip.
                 continue

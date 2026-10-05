@@ -46,7 +46,8 @@ APPLE_PRODUCT_TYPE_PREFIXES: list[tuple[str, DeviceType]] = [
     ("iPad", DeviceType.TABLET),
 ]
 
-# HealthKit sources written by Apple's own devices; their productType is the producing device
+# Bundle id prefix of HealthKit sources written by Apple's own devices, whose productType is the
+# producing device. Observed in SDK payloads (com.apple.health.<UUID>), not documented by Apple.
 APPLE_SOURCE_APP_PREFIX = "com.apple.health."
 
 

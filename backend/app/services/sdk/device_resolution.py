@@ -60,7 +60,8 @@ def extract_device_info(source: SourceInfo | None) -> tuple[str | None, str | No
 def extract_device_ids(source: SourceInfo | None) -> tuple[str | None, str | None, str | None]:
     """(device_id, source_app_id, device_manufacturer) reported by the SDK.
 
-    The repository keeps only the ids a provider's identity uses; the manufacturer is descriptive only.
+    Both ids key the data source, so only stable values belong here: iOS and Health Connect never fill
+    deviceId (HealthKit's localIdentifier changes per host and on updates). The manufacturer is descriptive.
     """
     if not source:
         return None, None, None

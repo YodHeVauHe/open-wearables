@@ -175,19 +175,22 @@ class TestDataSourceRepository:
         assert keyed.source_app_id == "com.apple.health.X"
         assert keyed.device_manufacturer == "Apple Inc."
 
-    def test_ids_ignored_for_providers_without_stable_ids(self, db: Session) -> None:
+    def test_record_without_ids_joins_the_only_keyed_row_of_its_model(self, db: Session) -> None:
         user = UserFactory()
         repo = DataSourceRepository(DataSource)
-        ds = repo.ensure_data_source(
-            db,
-            user_id=user.id,
-            provider=ProviderName.GARMIN,
-            device_model="Garmin fenix 8",
-            source="garmin",
-            device_id="x",
+        ids = {"user_id": user.id, "provider": ProviderName.SAMSUNG, "device_model": "SM-M127F"}
+        keyed = repo.ensure_data_source(
+            db, **ids, source="Kamil's M12", device_id="loGXfm78JC", source_app_id="com.sec.android.app.shealth"
         )
 
-        assert ds.device_id is None
+        steps = repo.ensure_data_source(db, **ids, source="m12")
+        repo.ensure_data_source(
+            db, **ids, source="Galaxy M12", device_id="other", source_app_id="com.sec.android.app.shealth"
+        )
+        ambiguous = repo.ensure_data_source(db, **ids, source="m12")
+
+        assert steps.id == keyed.id
+        assert ambiguous.id != keyed.id
 
     def test_writer_row_learns_model_and_matches_unknown_model(self, db: Session) -> None:
         user = UserFactory()
@@ -200,6 +203,18 @@ class TestDataSourceRepository:
 
         assert first.id == known.id == unknown_again.id
         assert known.device_model == "Charge 6"
+
+    def test_writer_converges_within_one_batch(self, db: Session) -> None:
+        user = UserFactory()
+        repo = DataSourceRepository(DataSource)
+        app = "com.fitbit.FitbitMobile"
+        unknown = (user.id, None, app, None, app)
+        known = (user.id, "Charge 6", app, None, app)
+
+        result = repo.batch_ensure_data_sources(db, ProviderName.HEALTH_CONNECT, None, {unknown, known})
+
+        assert result[unknown] == result[known]
+        assert repo.get_by_identity(db, user.id, ProviderName.HEALTH_CONNECT, "Charge 6", app, None, app) is not None
 
     def test_writer_with_several_models_keeps_separate_sources(self, db: Session) -> None:
         user = UserFactory()
