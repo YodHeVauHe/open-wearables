@@ -21,11 +21,13 @@ class DailyScalar(NamedTuple):
 
 # Earlier entries win when two metrics share a series and day_start_timestamp.
 # sleep_rhr is the overnight resting heart rate; night_rhr.avg is the fallback.
+# active_minutes is moderate-to-vigorous exercise, not all non-sedentary time.
 DAILY_SCALAR_SERIES: dict[str, DailyScalar] = {
     "vo2_max": DailyScalar(SeriesType.vo2_max, "value"),
-    "active_minutes": DailyScalar(SeriesType.active_time, "value"),
+    "active_minutes": DailyScalar(SeriesType.exercise_time, "value"),
     "sleep_rhr": DailyScalar(SeriesType.resting_heart_rate, "value"),
     "night_rhr": DailyScalar(SeriesType.resting_heart_rate, "avg"),
+    "temperature_deviation": DailyScalar(SeriesType.skin_temperature_deviation, "value"),
 }
 
 TIMESERIES: frozenset[SeriesType] = frozenset(
