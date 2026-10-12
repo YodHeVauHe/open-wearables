@@ -353,6 +353,39 @@ class TestUltrahumanActivitySamplesIntegration:
             value = float(sample.value)
             assert 15 <= value <= 90, f"VO2 max {value} is outside realistic range (15-90 ml/kg/min)"
 
+    def test_temperature_deviation_saved_as_skin_temperature_deviation(
+        self, db: Session, sample_ultrahuman_api_response: dict
+    ) -> None:
+        """The ring's nightly deviation from baseline reaches the skin_temperature_deviation series."""
+        user = UserFactory()
+        UserConnectionFactory(user=user, provider="ultrahuman", status="active", access_token="test_token")
+        DataSourceFactory(user_id=user.id, provider="ultrahuman")
+
+        provider_impl = ProviderFactory().get_provider("ultrahuman").data_247
+        assert isinstance(provider_impl, Ultrahuman247Data)
+
+        with patch.object(provider_impl, "_make_api_request", return_value=sample_ultrahuman_api_response):
+            provider_impl.load_and_save_all(
+                db,
+                user.id,
+                start_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 16, tzinfo=timezone.utc),
+            )
+            db.commit()
+
+        samples = (
+            db.query(DataPointSeries)
+            .join(DataSource)
+            .join(SeriesTypeDefinition, DataPointSeries.series_type_definition_id == SeriesTypeDefinition.id)
+            .filter(
+                DataSource.user_id == user.id,
+                SeriesTypeDefinition.code == SeriesType.skin_temperature_deviation.value,
+            )
+            .all()
+        )
+
+        assert [float(sample.value) for sample in samples] == [-0.2]
+
     def test_sleep_rhr_saved_as_resting_heart_rate(self, db: Session, sample_ultrahuman_api_response: dict) -> None:
         """The ring's overnight resting heart rate reaches the resting_heart_rate series."""
         user = UserFactory()
@@ -384,6 +417,189 @@ class TestUltrahumanActivitySamplesIntegration:
 
         assert [float(sample.value) for sample in samples] == [51]
         assert samples[0].recorded_at == datetime(2024, 1, 15, 0, 0, tzinfo=timezone.utc)
+
+    def test_night_rhr_average_saved_as_daily_resting_heart_rate(self, db: Session) -> None:
+        """night_rhr is one resting heart rate for the night: the sleep-time average.
+
+        The timestamped ``values`` are the readings behind that average. Continuous
+        heart rate already comes from ``hr``, and the other providers store resting
+        heart rate as a single daily sample.
+        """
+        user = UserFactory()
+        UserConnectionFactory(user=user, provider="ultrahuman", status="active", access_token="test_token")
+        DataSourceFactory(user_id=user.id, provider="ultrahuman")
+
+        provider_impl = ProviderFactory().get_provider("ultrahuman").data_247
+        assert isinstance(provider_impl, Ultrahuman247Data)
+
+        # Payload from the-momentum/open-wearables#664. No sleep_rhr, so this
+        # sample can only arrive via night_rhr.
+        night_rhr_response = {
+            "data": {
+                "metric_data": [
+                    {
+                        "type": "night_rhr",
+                        "object": {
+                            "day_start_timestamp": 1705276800,
+                            "title": "Resting HR",
+                            "values": [
+                                {"value": 52, "timestamp": 1705290000},
+                                {"value": 50, "timestamp": 1705293600},
+                                {"value": 51, "timestamp": 1705297200},
+                            ],
+                            "subtitle": "Sleep Time Average",
+                            "avg": 51,
+                        },
+                    }
+                ]
+            }
+        }
+
+        with patch.object(provider_impl, "_make_api_request", return_value=night_rhr_response):
+            provider_impl.load_and_save_all(
+                db,
+                user.id,
+                start_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+            )
+            db.commit()
+
+        samples = (
+            db.query(DataPointSeries)
+            .join(DataSource)
+            .join(SeriesTypeDefinition, DataPointSeries.series_type_definition_id == SeriesTypeDefinition.id)
+            .filter(
+                DataSource.user_id == user.id,
+                SeriesTypeDefinition.code == SeriesType.resting_heart_rate.value,
+            )
+            .order_by(DataPointSeries.recorded_at)
+            .all()
+        )
+
+        assert [(sample.recorded_at, float(sample.value)) for sample in samples] == [
+            (datetime(2024, 1, 15, 0, 0, tzinfo=timezone.utc), 51.0),
+        ]
+
+    def test_night_rhr_without_average_stores_nothing(self, db: Session) -> None:
+        """Readings in night_rhr.values are not resting-heart-rate samples on their own."""
+        user = UserFactory()
+        UserConnectionFactory(user=user, provider="ultrahuman", status="active", access_token="test_token")
+        DataSourceFactory(user_id=user.id, provider="ultrahuman")
+
+        provider_impl = ProviderFactory().get_provider("ultrahuman").data_247
+        assert isinstance(provider_impl, Ultrahuman247Data)
+
+        response = {
+            "data": {
+                "metric_data": [
+                    {
+                        "type": "night_rhr",
+                        "object": {
+                            "day_start_timestamp": 1705276800,
+                            "title": "Resting HR",
+                            "values": [
+                                {"value": 52, "timestamp": 1705290000},
+                                {"value": 50, "timestamp": 1705293600},
+                            ],
+                        },
+                    }
+                ]
+            }
+        }
+
+        with patch.object(provider_impl, "_make_api_request", return_value=response):
+            provider_impl.load_and_save_all(
+                db,
+                user.id,
+                start_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+            )
+            db.commit()
+
+        samples = db.query(DataPointSeries).join(DataSource).filter(DataSource.user_id == user.id).all()
+        assert samples == []
+
+    def test_sleep_rhr_preferred_when_night_rhr_is_also_present(self, db: Session) -> None:
+        """One resting heart rate per day: sleep_rhr, with night_rhr only as a fallback."""
+        user = UserFactory()
+        UserConnectionFactory(user=user, provider="ultrahuman", status="active", access_token="test_token")
+        DataSourceFactory(user_id=user.id, provider="ultrahuman")
+
+        provider_impl = ProviderFactory().get_provider("ultrahuman").data_247
+        assert isinstance(provider_impl, Ultrahuman247Data)
+
+        response = {
+            "data": {
+                "metric_data": [
+                    {"type": "sleep_rhr", "object": {"value": 48, "day_start_timestamp": 1705276800}},
+                    {
+                        "type": "night_rhr",
+                        "object": {
+                            "day_start_timestamp": 1705276800,
+                            "title": "Resting HR",
+                            "values": [{"value": 52, "timestamp": 1705290000}],
+                            "avg": 51,
+                        },
+                    },
+                ]
+            }
+        }
+
+        with patch.object(provider_impl, "_make_api_request", return_value=response):
+            provider_impl.load_and_save_all(
+                db,
+                user.id,
+                start_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+            )
+            db.commit()
+
+        samples = (
+            db.query(DataPointSeries)
+            .join(DataSource)
+            .join(SeriesTypeDefinition, DataPointSeries.series_type_definition_id == SeriesTypeDefinition.id)
+            .filter(
+                DataSource.user_id == user.id,
+                SeriesTypeDefinition.code == SeriesType.resting_heart_rate.value,
+            )
+            .all()
+        )
+
+        assert [(sample.recorded_at, float(sample.value)) for sample in samples] == [
+            (datetime(2024, 1, 15, 0, 0, tzinfo=timezone.utc), 48.0),
+        ]
+
+    def test_active_minutes_saved_as_exercise_time(self, db: Session, sample_ultrahuman_api_response: dict) -> None:
+        """Ultrahuman's active minutes are moderate to vigorous activity, not all non-sedentary time."""
+        user = UserFactory()
+        UserConnectionFactory(user=user, provider="ultrahuman", status="active", access_token="test_token")
+        DataSourceFactory(user_id=user.id, provider="ultrahuman")
+
+        provider_impl = ProviderFactory().get_provider("ultrahuman").data_247
+        assert isinstance(provider_impl, Ultrahuman247Data)
+
+        with patch.object(provider_impl, "_make_api_request", return_value=sample_ultrahuman_api_response):
+            provider_impl.load_and_save_all(
+                db,
+                user.id,
+                start_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 16, tzinfo=timezone.utc),
+            )
+            db.commit()
+
+        codes_and_values = (
+            db.query(SeriesTypeDefinition.code, DataPointSeries.value)
+            .select_from(DataPointSeries)
+            .join(DataSource, DataPointSeries.data_source_id == DataSource.id)
+            .join(SeriesTypeDefinition, DataPointSeries.series_type_definition_id == SeriesTypeDefinition.id)
+            .filter(
+                DataSource.user_id == user.id,
+                SeriesTypeDefinition.code.in_([SeriesType.exercise_time.value, SeriesType.active_time.value]),
+            )
+            .all()
+        )
+
+        assert [(code, float(value)) for code, value in codes_and_values] == [(SeriesType.exercise_time.value, 35)]
 
     def test_heart_rate_values_are_reasonable_with_mocked_api(
         self, db: Session, sample_ultrahuman_api_response: dict
